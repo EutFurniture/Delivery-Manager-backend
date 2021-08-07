@@ -250,6 +250,16 @@ app.post('/create', (req, res) => {
 });
 
 
+app.delete("/deleteDeliver/:employee_id",(req,res)=>{
+    const employee_id = req.params.employee_id;
+    const sqlDelete="DELETE FROM employee WHERE employee_id=?";
+
+    db.query(sqlDelete,employee_id,(err,result)=>{
+      if(err) console.log(err);
+    });
+  });
+
+
 app.get("/viewAvailableDelivery", (req, res) => {
     const sql_View = "SELECT orders.order_id,orders.order_last_date,customer.c_address,customer.c_name, customer.c_phone_no FROM orders LEFT JOIN customer ON orders.customer_id=customer.customer_id ";
         db.query(sql_View, (err, result) => {
@@ -257,7 +267,37 @@ app.get("/viewAvailableDelivery", (req, res) => {
         });      
     });
 
+    app.get("/viewDeliver",(req,res)=>{
+        employee_id=req.params.employee_id;
+        db.query("SELECT * FROM employee WHERE employee_id=?",[req.query.employee_id],(err,result)=>{
+          console.log(req.query.employee_id);
+          res.send(result);
+        });
+        
+      });
+
+app.get("/viewDeliveryDetails",(req,res)=>{
+    order_id=req.params.order_id;
+    db.query("SELECT orders.order_id,orders.employee_id,orders.order_last_date, orders.o_status,customer.c_name,customer.c_address FROM orders INNER JOIN customer ON orders.customer_id=customer.customer_id WHERE orders.o_status='Ready to deliver' OR orders.o_status='Completed' OR  orders.o_status='Returned' OR orders.o_status='Pending' ORDER BY orders.order_id DESC",[req.query.order_id],(err,result)=>{
+        console.log(req.query.order_id);
+        res.send(result);
+    });
+        
+});
+
+
+app.get("/CashOnDeliveryDetails",(req,res)=>{
+    order_id=req.params.order_id;
+    db.query("SELECT orders.order_id,orders.employee_id,orders.order_last_date, orders.o_status,customer.c_name,customer.c_address FROM orders INNER JOIN customer ON orders.customer_id=customer.customer_id WHERE orders.o_status='Ready to deliver' OR orders.o_status='Completed' OR  orders.o_status='Returned' OR orders.o_status='Pending' ORDER BY orders.order_id DESC",[req.query.order_id],(err,result)=>{
+        console.log(req.query.order_id);
+        res.send(result);
+    });
+        
+});
     
 app.listen(3001, () => {
     console.log("yay your server is running on port 3001");
 });
+
+
+//UPDATE return_item SET reschedule_date=NOW() WHERE return_id='1'
