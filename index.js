@@ -124,22 +124,6 @@ app.post('/addDelivers',(req,res)=>{
 */}
 
 
-app.post('/assign', (req,res) => {
-    const deliverid = req.body.deliverid
-
-    db.query("INSERT INTO orders (e_name, e_nic, e_email, e_phone, e_job_start_date, e_address, e_role, e_password, e_c_password) VALUES ( ?, ?, ?, ?,NOW(), ?,'Deliver', ?, ?)", 
-    [fullname,nationalid,email,mobile,address,password,cpassword],
-    (err,result) => {
-        if (err) {
-            console.log(err);
-        }else {
-            res.send("values inserted")
-        }
-    }
-    );
-
-});
-
 app.get("/delivers", (req, res) => {
     db.query("SELECT * FROM employee WHERE e_role='Deliver' ", (err, result, fields) => {
         if (err) {
@@ -150,8 +134,38 @@ app.get("/delivers", (req, res) => {
     });
 });
 
+app.get("/orderstatus", (req, res) => {
+    db.query("SELECT DISTINCT o_status FROM orders WHERE NOT o_status ='Processing'", (err, result, fields) => {
+        if (err) {
+            console.log(err);
+        } else{
+            res.send(result);
+        }
+    });
+});
+
+app.get("/paymentstatus", (req, res) => {
+    db.query("SELECT DISTINCT payment_status FROM payment", (err, result, fields) => {
+        if (err) {
+            console.log(err);
+        } else{
+            res.send(result);
+        }
+    });
+});
+
+app.get("/deliverid", (req, res) => {
+    db.query("SELECT employee_id FROM employee WHERE e_role='Deliver'", (err, result, fields) => {
+        if (err) {
+            console.log(err);
+        } else{
+            res.send(result);
+        }
+    });
+});
+
 app.get("/delivery", (req, res) => {
-    db.query("SELECT orders.order_id,orders.employee_id,orders.order_last_date, orders.o_status,customer.c_name,customer.c_address FROM orders INNER JOIN customer ON orders.customer_id=customer.customer_id WHERE orders.o_status='Ready to deliver' OR orders.o_status='Completed' OR  orders.o_status='Returned' OR orders.o_status='Pending' ORDER BY orders.order_id DESC", (err, result, fields) => {
+    db.query("SELECT orders.order_id,orders.employee_id,orders.order_last_date, orders.o_status,customer.c_name,customer.c_address FROM orders INNER JOIN customer ON orders.customer_id=customer.customer_id WHERE orders.o_status='Ready to deliver' OR orders.o_status='Completed' OR  orders.o_status='Returned' OR orders.o_status='Pending' OR orders.o_status='Scheduled' ORDER BY orders.order_id DESC", (err, result, fields) => {
         if (err) {
             console.log(err);
         } else{
@@ -161,7 +175,7 @@ app.get("/delivery", (req, res) => {
 });
 
 app.get("/deliverys", (req, res) => {
-    db.query("SELECT orders.order_id,orders.employee_id,orders.order_last_date, orders.o_status,customer.c_name,customer.c_address FROM orders INNER JOIN customer ON orders.customer_id=customer.customer_id WHERE  orders.o_status='Completed' OR  orders.o_status='Returned'  ORDER BY orders.order_id DESC LIMIT 8", (err, result, fields) => {
+    db.query("SELECT orders.order_id,orders.employee_id,orders.order_last_date, orders.o_status,customer.c_name,customer.c_address FROM orders INNER JOIN customer ON orders.customer_id=customer.customer_id WHERE  orders.o_status='Completed' OR  orders.o_status='Returned' OR orders.o_status='Scheduled' ORDER BY orders.order_id DESC LIMIT 8", (err, result, fields) => {
         if (err) {
             console.log(err);
         } else{
@@ -181,7 +195,7 @@ app.get("/Assign", (req, res) => {
 });
 
 app.get("/viewStatus", (req, res) => {
-    db.query("SELECT employee.employee_id,employee.e_name, COUNT(orders.o_status) AS pending FROM employee LEFT JOIN orders ON orders.employee_id=employee.employee_id WHERE (orders.o_status='Pending' OR orders.o_status='Returned') AND employee.e_role='Deliver' GROUP BY employee.employee_id", (err, result, fields) => {
+    db.query("SELECT employee.employee_id,employee.e_name, COUNT(orders.o_status) AS pending FROM employee LEFT JOIN orders ON orders.employee_id=employee.employee_id WHERE (orders.o_status='Pending' OR orders.o_status='Scheduled' OR orders.o_status='Returned') AND employee.e_role='Deliver' GROUP BY employee.employee_id", (err, result, fields) => {
         if (err) {
             console.log(err);
         } else{
@@ -191,7 +205,7 @@ app.get("/viewStatus", (req, res) => {
 });
 
 app.get("/getPriority", (req, res) => {
-    db.query("SELECT employee.employee_id,employee.e_name,orders.order_id,orders.order_last_date FROM orders INNER JOIN employee ON orders.employee_id=employee.employee_id WHERE orders.o_status='Pending' UNION SELECT return_item.employee_id,employee.e_name,return_item.order_id,return_item.reschedule_date FROM return_item INNER JOIN employee ON return_item.employee_id=employee.employee_id WHERE return_item.return_status='Scheduled' ORDER BY employee_id", (err, result, fields) => {
+    db.query("SELECT orders.employee_id,orders.order_id,orders.order_last_date,orders.o_status,orders.o_priority FROM orders WHERE orders.o_status='Pending' UNION SELECT return_item.employee_id,return_item.order_id,return_item.reschedule_date,return_item.return_status, return_item.o_priority FROM return_item WHERE return_item.return_status='Scheduled' ORDER BY employee_id", (err, result, fields) => {
         if (err) {
             console.log(err);
         } else{
@@ -278,7 +292,25 @@ app.get("/viewAvailableDelivery", (req, res) => {
 
 app.get("/viewDeliveryDetails",(req,res)=>{
     order_id=req.params.order_id;
-    db.query("SELECT orders.order_id,orders.employee_id,orders.order_last_date, orders.o_status,customer.c_name,customer.c_address FROM orders INNER JOIN customer ON orders.customer_id=customer.customer_id WHERE orders.o_status='Ready to deliver' OR orders.o_status='Completed' OR  orders.o_status='Returned' OR orders.o_status='Pending' ORDER BY orders.order_id DESC",[req.query.order_id],(err,result)=>{
+    db.query("SELECT orders.order_id,orders.employee_id,orders.order_last_date, orders.o_description,orders.o_d_date,orders.o_status,orders.o_date,customer.c_name,customer.c_address,customer.c_email,customer.c_phone_no FROM orders INNER JOIN customer ON orders.customer_id=customer.customer_id WHERE orders.order_id=?",[req.query.order_id],(err,result)=>{
+        console.log(req.query.order_id);
+        res.send(result);
+    });
+        
+});
+
+app.get("/viewReturnDetails",(req,res)=>{
+    order_id=req.params.order_id;
+    db.query("SELECT order_id,employee_id,return_date,reason,return_status FROM return_item WHERE order_id=?",[req.query.order_id],(err,result)=>{
+        console.log(req.query.order_id);
+        res.send(result);
+    });
+        
+});
+
+app.get("/viewPriorityDetails",(req,res)=>{
+    order_id=req.params.order_id;
+    db.query("SELECT orders.order_id,orders.o_priority FROM orders WHERE orders.order_id=?",[req.query.order_id],(err,result)=>{
         console.log(req.query.order_id);
         res.send(result);
     });
@@ -288,16 +320,150 @@ app.get("/viewDeliveryDetails",(req,res)=>{
 
 app.get("/CashOnDeliveryDetails",(req,res)=>{
     order_id=req.params.order_id;
-    db.query("SELECT orders.order_id,orders.employee_id,orders.order_last_date, orders.o_status,customer.c_name,customer.c_address FROM orders INNER JOIN customer ON orders.customer_id=customer.customer_id WHERE orders.o_status='Ready to deliver' OR orders.o_status='Completed' OR  orders.o_status='Returned' OR orders.o_status='Pending' ORDER BY orders.order_id DESC",[req.query.order_id],(err,result)=>{
+    db.query("SELECT orders.order_id,orders.employee_id,orders.order_last_date,orders.customer_id,orders.total_price,orders.advance_price,payment.payment_status,orders.o_status FROM orders INNER JOIN payment ON orders.order_id=payment.order_id WHERE orders.order_id=?",[req.query.order_id],(err,result)=>{
         console.log(req.query.order_id);
         res.send(result);
     });
         
 });
+
+app.put('/updateDeliveryStatus', (req,res) => {
+    const order_id=req.body.order_id;
+    const status = req.body.status;
+    const Deliver_id= req.body.Deliver_id;
+
+    db.query("UPDATE orders SET o_status=?, employee_id=? WHERE order_id = ?", 
+    [status,Deliver_id,order_id], 
+    (err, result) => {
+
+        if (err) {
+            console.log(err);
+        } else {
+            res.send(result);
+        }
+       }
+    );
+  });
+
+  app.put('/AssignDeliver', (req,res) => {
+    const order_id=req.body.order_id;
+    const Deliver_id= req.body.Deliver_id;
     
+
+    db.query("UPDATE orders SET  employee_id=?, o_status='Pending'  WHERE order_id = ?", 
+    [Deliver_id,order_id], 
+    (err, result) => {
+
+        if (err) {
+            console.log(err);
+        } else {
+            res.send(result);
+            
+        }
+       }
+    );
+  });
+
+  app.put('/AssignPriority', (req,res) => {
+    const order_id=req.body.order_id;
+    const Priority_number= req.body.Priority_number;
+    
+
+    db.query("UPDATE orders SET o_priority=?  WHERE order_id = ? ; UPDATE return_item SET o_priority=? WHERE order_id=?;", 
+    [Priority_number,order_id,Priority_number,order_id], 
+    (err, result) => {
+
+        if (err) {
+            console.log(err);
+        } else {
+            res.send(result);
+        }
+       }
+    );
+  });
+
+  app.put('/ReturnSchedule', (req,res) => {
+    const order_id=req.body.order_id;
+    const Schedule_date= req.body.Schedule_date;
+
+    db.query("UPDATE return_item SET reschedule_date=?,return_status='Scheduled' WHERE order_id=?; UPDATE orders SET order_last_date=?,o_status='Scheduled' WHERE order_id=?", 
+    [Schedule_date,order_id,Schedule_date,order_id], 
+    (err, result) => {
+
+        if (err) {
+            console.log(err);
+        } else {
+            res.send(result);
+        }
+       }
+    );
+  });
+
+  app.put('/updateCashStatus', (req,res) => {
+    const order_id=req.body.order_id;
+    const status = req.body.status;
+    const Payment= req.body.Payment;
+
+    db.query("UPDATE payment SET payment_status=? WHERE order_id = ?; UPDATE orders SET o_status=? WHERE order_id = ?", 
+    [Payment,order_id,status,order_id], 
+    (err, result) => {
+
+        if (err) {
+            console.log(err);
+        } else {
+            res.send(result);
+        }
+       }
+    );
+  });
+
+  app.put('/updateReturnStatus', (req,res) => {
+    const order_id=req.body.order_id;
+    const status = req.body.status;
+
+    db.query("UPDATE orders SET o_status=? WHERE order_id = ?; UPDATE return_item SET return_status=? WHERE order_id=?", 
+    [status,order_id,status,order_id], 
+    (err, result) => {
+
+        if (err) {
+            console.log(err);
+        } else {
+            res.send(result);
+        }
+       }
+    );
+  });
+
+  app.put('/UpdateDelivers', (req,res) => {
+    const employee_id=req.body.employee_id;
+    const name = req.body.name;
+    const email = req.body.email;
+    const phone = req.body.phone;
+    const address = req.body.address;
+
+    db.query("UPDATE employee SET e_name=?,e_email=?,e_phone=?,e_address=? WHERE employee_id = ?", 
+    [name,email,phone,address,employee_id], 
+    (err, result) => {
+
+        if (err) {
+            console.log(err);
+        } else {
+            res.send(result);
+        }
+       }
+    );
+  });
+
+  app.get("/viewDeliverySchedule", (req, res) => {
+    db.query("SELECT order_id, employee_id, o_date, order_last_date FROM orders ORDER BY order_last_date DESC", (err, result, fields) => {
+        if (err) {
+            console.log(err);
+        } else{
+            res.send(result);
+        }
+    });
+});
+  
 app.listen(3001, () => {
     console.log("yay your server is running on port 3001");
 });
-
-
-//UPDATE return_item SET reschedule_date=NOW() WHERE return_id='1'
