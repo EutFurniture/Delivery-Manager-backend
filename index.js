@@ -317,6 +317,16 @@ app.get("/viewPriorityDetails",(req,res)=>{
         
 });
 
+app.get("/viewDeliveryManager",(req,res)=>{
+    employee_id=req.params.employee_id;
+
+    db.query("SELECT * FROM employee WHERE e_role='DeliveryManager'",[req.query.employee_id],(err,result)=>{
+        console.log(req.query.employee_id);
+        res.send(result);
+    });
+        
+});
+
 
 app.get("/CashOnDeliveryDetails",(req,res)=>{
     order_id=req.params.order_id;
